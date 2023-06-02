@@ -1,0 +1,41 @@
+version: "3"
+
+services:
+  server:
+    build:
+      context: server
+      dockerfile: Dockerfile
+    container_name: server
+    working_dir: /var/www/server
+    ports:
+      - "$SERVER_PORT:$SERVER_PORT"
+    volumes:
+      - ./server/:/var/www/server/
+    command: python manage.py runserver 0.0.0.0:$SERVER_PORT
+    environment:
+      - DJANGO_SETTINGS_MODULE=$DJANGO_SETTINGS_MODULE
+    env_file:
+      - .env
+    depends_on:
+      - database
+
+  database:
+    image: postgres:15.2-alpine
+    container_name: database
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "$DATABASE_PORT:$DATABASE_PORT"
+    volumes:
+      - ./initial.sql:/docker-entrypoint-initdb.d/initial.sql
+
+  client:
+    container_name: client
+    build:
+      context: client
+      dockerfile: Dockerfile
+    stdin_open: true
+    ports:
+      - "$CLIENT_PORT:$CLIENT_PORT"
+    volumes:
+      - ./client/:/var/www/client

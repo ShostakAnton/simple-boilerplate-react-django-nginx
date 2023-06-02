@@ -1,0 +1,49 @@
+version: "3"
+
+services:
+  nginx:
+    build:
+      context: .
+      dockerfile: ./nginx/Dockerfile
+    container_name: nginx
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - ./server/:/var/www/server
+      - ./client/:/var/www/client
+      - ./nginx/default.conf.template:/etc/nginx/conf.d/default.conf.template
+      - /etc/letsencrypt:/etc/letsencrypt
+    environment:
+      - NGINX_HOST=$NGINX_HOST
+    command: /bin/bash -c "export DOLLAR='$' && envsubst < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'" 
+    links:
+      - server
+
+  server:
+    build:
+      context: server
+      dockerfile: Dockerfile
+    container_name: server
+    working_dir: /var/www/server
+    ports:
+      - "$SERVER_PORT:$SERVER_PORT"
+    volumes:
+      - ./server/:/var/www/server/
+    command: gunicorn server.wsgi -c gunicorn.conf
+    environment:
+      - DJANGO_SETTINGS_MODULE=$DJANGO_SETTINGS_MODULE
+    env_file:
+      - .env
+    depends_on:
+      - database
+
+  database:
+    image: postgres:15.2-alpine
+    container_name: database
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "$DATABASE_PORT:$DATABASE_PORT"
+    volumes:
+      - ./initial.sql:/docker-entrypoint-initdb.d/initial.sql
